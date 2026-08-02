@@ -102,7 +102,9 @@ One codebase, three interfaces. Write business logic once in `services/` and it 
 
 Need elicitation, image output, or an iframe dashboard for an MCP tool? Add an opt-in **enhancer** in `mcp_server/enhancers/`. Enhancers wrap a service for the MCP transport only - the pure service stays untouched and CLI/API consumers are unaffected.
 
-See [`mcp_server/MCP_UI_ARCHITECTURE.md`](mcp_server/MCP_UI_ARCHITECTURE.md) for the full design.
+Enhancers can elicit input, attach images/audio, or render an iframe app.
+The app surface itself was pruned during onboarding; re-create
+`mcp_server/apps/<name>/` to use `tool.send_app(...)`.
 
 ## Quick Start
 

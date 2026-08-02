@@ -134,17 +134,7 @@ mcp: check_uv ## Run MCP server locally (stdio)
 mcp_inspect: check_uv ## Run MCP server with inspector for debugging
 	@$(PYTHON) mcp dev mcp_server/server.py
 
-.PHONY: preview_app preview_smoke
 APP ?= gmail_inbox
-preview_app: ## Build a standalone fixture-driven preview of an MCP App (APP=gmail_inbox)
-	@command -v bun >/dev/null 2>&1 || { echo "$(RED)bun is not installed. Install from https://bun.sh$(RESET)"; exit 1; }
-	@echo "$(YELLOW)🖼  Building $(APP) fixture preview...$(RESET)"
-	@cd mcp_server/dev_preview && bun install --silent && APP=$(APP) bun run build.mjs
-
-preview_smoke: ## Headless Playwright check that an MCP App renders from fixtures (APP=gmail_inbox)
-	@command -v bun >/dev/null 2>&1 || { echo "$(RED)bun is not installed. Install from https://bun.sh$(RESET)"; exit 1; }
-	@echo "$(YELLOW)🧪 Smoke-testing $(APP) fixture preview...$(RESET)"
-	@cd mcp_server/dev_preview && bun install --silent && APP=$(APP) bun run smoke.mjs
 
 mcp_conformance: check_uv ## Run MCPJam apps + protocol conformance against the local /mcp server (requires node)
 	@command -v npx >/dev/null 2>&1 || { echo "$(RED)npx (Node.js) is not installed. Install from https://nodejs.org$(RESET)"; exit 1; }
