@@ -36,8 +36,8 @@ Railway generates `secret(...)` values **once** and persists them, so redeploys 
 
 **Gotchas:**
 
-- `DEV_ENV` must be `prod`. The Dockerfile sets it, but an empty template var *overrides* it back to blank, silently disabling prod token encryption and the prod config overlay.
-- The backend service needs a **public domain** enabled, or `${{RAILWAY_PUBLIC_DOMAIN}}` resolves to empty and both URLs break.
+- `DEV_ENV` must be `prod`. The Dockerfile sets it, but an empty template var *overrides* it back to blank, silently disabling the prod config overlay.
+- The backend service needs a **public domain** enabled, or `${{RAILWAY_PUBLIC_DOMAIN}}` resolves to empty and `MCP_PUBLIC_URL` breaks.
 - After deploy, point your WorkOS redirect/resource at `MCP_PUBLIC_URL`. (Inherent to OAuth; can't be automated.)
 
 ## Optional integrations
