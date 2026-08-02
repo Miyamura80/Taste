@@ -231,7 +231,7 @@ class TestMCPWireE2E(TestTemplate):
         async def _enhancer(tool):
             result = tool.call()
             tool.send_text("extra block", audience=["user"])
-            tool.send_app("ui://mymcp/__e2e_test_app")
+            tool.send_app("ui://taste/__e2e_test_app")
             return result
 
         entry = next(e for e in get_registry() if e.name == svc_name)
@@ -247,8 +247,8 @@ class TestMCPWireE2E(TestTemplate):
                 assert blocks[1]["text"] == "extra block"
                 assert blocks[1]["annotations"]["audience"] == ["user"]
                 meta = result["_meta"]
-                assert meta["ui"]["resourceUri"] == "ui://mymcp/__e2e_test_app"
-                assert meta["ui/resourceUri"] == "ui://mymcp/__e2e_test_app"
+                assert meta["ui"]["resourceUri"] == "ui://taste/__e2e_test_app"
+                assert meta["ui/resourceUri"] == "ui://taste/__e2e_test_app"
         finally:
             _registry[:] = [e for e in _registry if e.name != svc_name]
             _enhancers.pop(svc_name, None)

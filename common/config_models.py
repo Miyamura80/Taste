@@ -157,16 +157,16 @@ class BrandingConfig(BaseModel):
     card and the OAuth resource metadata can never disagree.
     """
 
-    name: str = "io.github.Miyamura80/MCP-Template"
-    title: str = "GmailMCP"
+    name: str = "io.github.Miyamura80/Taste"
+    title: str = "Taste"
     description: str = (
         "Give your AI agent real tools - one service registry over CLI, MCP, and HTTP."
     )
-    website_url: str = "https://gmailmcp.com"
-    repository_url: str = "https://github.com/Miyamura80/MCP-Template"
+    website_url: str = "https://example.com"
+    repository_url: str = "https://github.com/Miyamura80/Taste"
     repository_source: str = "github"
     icons: list[IconConfig] = Field(
-        default_factory=lambda: [IconConfig(src="https://gmailmcp.com/favicon.svg")]
+        default_factory=lambda: [IconConfig(src="https://example.com/favicon.svg")]
     )
 
 
@@ -207,7 +207,7 @@ class AskConfig(BaseModel):
 
     enabled: bool = False
     corpus_path: str = "docs/content/docs"
-    docs_base_url: str = "https://docs.gmailmcp.com"
+    docs_base_url: str = "https://docs.example.com"
     top_k: int = 5
     rate_limit_per_minute: int = 20
 

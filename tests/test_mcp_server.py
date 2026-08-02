@@ -140,10 +140,10 @@ class TestMCPServerIntegration(TestTemplate):
         test_mcp = FastMCP("test_stub")
         missing = Path("/nonexistent/test_app/dist/mcp-app.html")
         _register_app_resource(
-            test_mcp, "ui://mymcp/test_stub_app", missing, "test_stub_app"
+            test_mcp, "ui://taste/test_stub_app", missing, "test_stub_app"
         )
 
-        contents = list(asyncio.run(test_mcp.read_resource("ui://mymcp/test_stub_app")))
+        contents = list(asyncio.run(test_mcp.read_resource("ui://taste/test_stub_app")))
         assert len(contents) == 1
         text = str(contents[0].content)
         assert text.startswith("<!--")

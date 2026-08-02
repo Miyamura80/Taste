@@ -10,9 +10,9 @@ from src.utils.interactive import interactive_fallback
 from src.utils.output import render
 
 EPILOG = examples_epilog(
-    "mymcp greet Ada",
-    "mymcp greet Ada --shout --times 3",
-    "mymcp --dry-run greet Ada",
+    "taste greet Ada",
+    "taste greet Ada --shout --times 3",
+    "taste --dry-run greet Ada",
 )
 
 

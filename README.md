@@ -1,4 +1,4 @@
-# mcp-template
+# taste
 
 <p align="center">
   <img src="media/banner.png" alt="2" width="400">
@@ -20,16 +20,16 @@
 </p>
 
 <p align="center">
-  <a href="https://railway.com/deploy/gmailmcp"><img alt="Deploy on Railway" src="https://railway.com/button.svg" height="32"></a>
+  <a href="https://railway.com/deploy/taste"><img alt="Deploy on Railway" src="https://railway.com/button.svg" height="32"></a>
   &nbsp;
-  <a href="https://render.com/deploy?repo=https://github.com/Miyamura80/MCP-Template"><img alt="Deploy to Render" src="https://render.com/images/deploy-to-render-button.svg" height="32"></a>
+  <a href="https://render.com/deploy?repo=https://github.com/Miyamura80/Taste"><img alt="Deploy to Render" src="https://render.com/images/deploy-to-render-button.svg" height="32"></a>
 </p>
 
 <p align="center">
-  <img alt="Project Version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiyamura80%2FMCP-Template%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version&color=blue">
-  <img alt="Python Version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiyamura80%2FMCP-Template%2Fmain%2Fpyproject.toml&query=%24.project['requires-python']&label=python&logo=python&color=blue">
-  <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/Miyamura80/MCP-Template">
-  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/Miyamura80/MCP-Template/a_test_target_tests.yml?branch=main">
+  <img alt="Project Version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiyamura80%2FTaste%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version&color=blue">
+  <img alt="Python Version" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiyamura80%2FTaste%2Fmain%2Fpyproject.toml&query=%24.project['requires-python']&label=python&logo=python&color=blue">
+  <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/Miyamura80/Taste">
+  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/Miyamura80/Taste/a_test_target_tests.yml?branch=main">
 
 </p>
 
@@ -42,7 +42,7 @@
 ```text
 Install the CLI:
 
-pip install mcp-template
+pip install taste
 ```
 
 ## App Distribution
@@ -109,12 +109,12 @@ See [`mcp_server/MCP_UI_ARCHITECTURE.md`](mcp_server/MCP_UI_ARCHITECTURE.md) for
 ```bash
 make onboard              # interactive setup (rename, deps, env, hooks)
 uv sync                   # install deps
-uv run mymcp --help       # see all CLI commands
-uv run mymcp greet Alice  # run a command
-uv run mymcp init my_command  # scaffold a new command
+uv run taste --help       # see all CLI commands
+uv run taste greet Alice  # run a command
+uv run taste init my_command  # scaffold a new command
 
-uv run mymcp-serve        # start the server (HTTP API + MCP at /mcp on one port)
-uv run mymcp-mcp          # legacy: stdio MCP only, for local Claude Desktop / dev
+uv run taste-serve        # start the server (HTTP API + MCP at /mcp on one port)
+uv run taste-mcp          # legacy: stdio MCP only, for local Claude Desktop / dev
 ```
 
 ## Deploy
@@ -135,9 +135,9 @@ Global flags go **before** the subcommand:
 | `--version` | `-V` | Print version and exit |
 
 ```bash
-uv run mymcp --format json config show     # JSON output
-uv run mymcp --dry-run greet Bob           # preview without executing
-uv run mymcp --verbose greet Alice         # detailed output
+uv run taste --format json config show     # JSON output
+uv run taste --dry-run greet Bob           # preview without executing
+uv run taste --verbose greet Alice         # detailed output
 ```
 
 ## Adding Commands
@@ -158,7 +158,7 @@ def main(name: Annotated[str, typer.Argument(help="Who to greet.")]) -> None:
 ```
 
 ```bash
-uv run mymcp hello World   # Hello, World!
+uv run taste hello World   # Hello, World!
 ```
 
 **Subcommand group** - export `app = typer.Typer()`:
@@ -177,10 +177,10 @@ def migrate() -> None:
 ```
 
 ```bash
-uv run mymcp db migrate
+uv run taste db migrate
 ```
 
-Or scaffold with: `uv run mymcp init my_command --desc "Does something"`.
+Or scaffold with: `uv run taste init my_command --desc "Does something"`.
 
 ## Configuration
 
@@ -197,9 +197,9 @@ global_config.OPENAI_API_KEY
 CLI config inspection:
 
 ```bash
-uv run mymcp config show                           # full config
-uv run mymcp config get llm_config.cache_enabled   # single value
-uv run mymcp config set logging.verbose false      # write override
+uv run taste config show                           # full config
+uv run taste config get llm_config.cache_enabled   # single value
+uv run taste config set logging.verbose false      # write override
 ```
 
 [Full configuration docs](manual_docs/configuration.md)
@@ -217,8 +217,8 @@ This software uses the following tools:
 
 ## About the Core Contributors
 
-<a href="https://github.com/Miyamura80/MCP-Template/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Miyamura80/MCP-Template" />
+<a href="https://github.com/Miyamura80/Taste/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Miyamura80/Taste" />
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).

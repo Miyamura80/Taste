@@ -1,7 +1,7 @@
 [project]
-name = "mcp-template"
+name = "taste"
 version = "0.1.1"
-description = "🪛 CLI tool template (python) with batteries included. Auto-install, updates, linting, dead code analysis, and a whole lot more."
+description = "Give your AI agent real tools - one service registry over CLI, MCP, and HTTP."
 authors = [
     { name = "Miyamura80", email = "eitomiyamura@gmail.com" }
 ]
@@ -76,18 +76,18 @@ readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.urls]
-Homepage = "https://github.com/Miyamura80/MCP-Template"
-Repository = "https://github.com/Miyamura80/MCP-Template"
-Issues = "https://github.com/Miyamura80/MCP-Template/issues"
+Homepage = "https://github.com/Miyamura80/Taste"
+Repository = "https://github.com/Miyamura80/Taste"
+Issues = "https://github.com/Miyamura80/Taste/issues"
 
 [project.scripts]
-mymcp = "src.cli.app:main_cli"
+taste = "src.cli.app:main_cli"
 # Primary remote-MCP entrypoint: HTTP API + MCP (streamable HTTP) on one port.
-mymcp-serve = "api_server:main"
+taste-serve = "api_server:main"
 # Legacy stdio transport, kept for local Claude Desktop / dev only.
-mymcp-mcp = "mcp_server:main"
-# Deprecated alias for mymcp-serve; prefer the new name.
-mymcp-api = "api_server:main"
+taste-mcp = "mcp_server:main"
+# Deprecated alias for taste-serve; prefer the new name.
+taste-api = "api_server:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -5,7 +5,7 @@ description: One-click deploy to Railway or Render, or run the container on any 
 
 import { Train, Server } from 'lucide-react';
 
-`mymcp-serve` runs the FastAPI app, which mounts FastMCP at `/mcp`. One image,
+`taste-serve` runs the FastAPI app, which mounts FastMCP at `/mcp`. One image,
 one process, one port -- anything that can run a container can host it. Deploy it
 one-click to Railway or Render, or run the container yourself.
 
@@ -13,13 +13,13 @@ one-click to Railway or Render, or run the container yourself.
   <Card
     icon={<Train />}
     title="Deploy on Railway"
-    href="https://railway.com/deploy/gmailmcp"
+    href="https://railway.com/deploy/taste"
     description="One-click template: backend + managed Postgres, migrations run automatically."
   />
   <Card
     icon={<Server />}
     title="Deploy to Render"
-    href="https://render.com/deploy?repo=https://github.com/Miyamura80/MCP-Template"
+    href="https://render.com/deploy?repo=https://github.com/Miyamura80/Taste"
     description="One-click blueprint from render.yaml, database and session secret wired."
   />
 </Cards>
@@ -38,7 +38,7 @@ Render's button takes an absolute repo URL, so it can't auto-follow a fork.
 
 ## Railway
 
-The committed [`railway.json`](https://github.com/Miyamura80/MCP-Template/blob/main/railway.json)
+The committed [`railway.json`](https://github.com/Miyamura80/Taste/blob/main/railway.json)
 pins the Docker build, pre-deploy migrations, and health check, so the template
 inherits them. To re-generate or update the template: **project Settings ->
 Generate Template from Project -> Publish** (dashboard only; the CLI can't
@@ -63,7 +63,7 @@ Postgres defaults) and the **backend**. Set the backend's variables as follows.
 The trailing `=` on `GOOGLE_TOKEN_ENC_KEY` is literal (outside the `${{ }}`): 43
 base64url chars + `=` decodes to the 32 bytes Fernet requires. Railway generates
 `secret(...)` values **once** and persists them, so redeploys don't invalidate
-the session secret or break stored Gmail tokens.
+the session secret or break stored OAuth tokens.
 
 **Leave empty; the deployer pastes their own** (per-deployment credentials that
 can't be pre-baked):
@@ -83,7 +83,7 @@ can't be pre-baked):
 
 ## Render
 
-Driven by [`render.yaml`](https://github.com/Miyamura80/MCP-Template/blob/main/render.yaml).
+Driven by [`render.yaml`](https://github.com/Miyamura80/Taste/blob/main/render.yaml).
 The database and `SESSION_SECRET_KEY` are wired automatically; you're prompted
 for the WorkOS and Google OAuth secrets. After the first deploy, set
 `MCP_PUBLIC_URL` to `https://<your-render-host>/mcp` and `GOOGLE_REDIRECT_URI`
@@ -105,7 +105,7 @@ map above for the full set.
 
 ## Optional integrations
 
-See [`.env.example`](https://github.com/Miyamura80/MCP-Template/blob/main/.env.example)
+See [`.env.example`](https://github.com/Miyamura80/Taste/blob/main/.env.example)
 for the full list of optional integrations (LLM keys, Stripe, LangFuse, Telegram,
 etc.). Add any you need from the platform dashboard after the first deploy.
 

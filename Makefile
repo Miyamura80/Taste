@@ -126,10 +126,10 @@ docs: ## Run docs with bun
 
 api: check_uv ## Run authenticated API server
 	@echo "$(GREEN)🌐 Starting API server...$(RESET)"
-	@$(PYTHON) mymcp-serve
+	@$(PYTHON) taste-serve
 
 mcp: check_uv ## Run MCP server locally (stdio)
-	@$(PYTHON) mymcp-mcp
+	@$(PYTHON) taste-mcp
 
 mcp_inspect: check_uv ## Run MCP server with inspector for debugging
 	@$(PYTHON) mcp dev mcp_server/server.py

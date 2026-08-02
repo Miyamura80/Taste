@@ -30,7 +30,7 @@ from mcp_server.server import lifespan as mcp_lifespan
 from mcp_server.server import mount_on as mount_mcp_server
 
 try:
-    _APP_VERSION = _pkg_version("mcp-template")
+    _APP_VERSION = _pkg_version("taste")
 except PackageNotFoundError:
     _APP_VERSION = "0.1.0"
 
@@ -53,7 +53,7 @@ _API_DESCRIPTION = (
     "**Deprecation policy:** a deprecated endpoint returns a `Deprecation` "
     "header (RFC 9745), a `Sunset` header (RFC 8594) once a removal date is "
     'set, and a `Link; rel="deprecation"` header pointing to the policy page. '
-    "See https://gmailmcp.com/docs/api/deprecation.\n\n"
+    "See https://example.com/docs/api/deprecation.\n\n"
     "**Pagination:** list endpoints are cursor-based. Follow `next_cursor` "
     "until `has_more` is false."
 )
@@ -67,7 +67,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="mymcp-api",
+    title="taste-api",
     version=_APP_VERSION,
     description=_API_DESCRIPTION,
     servers=_openapi_servers,
@@ -119,7 +119,7 @@ _mcp_app.add_exception_handler(404, index.not_found_handler)
 
 
 def main() -> None:
-    """Entry-point for ``mymcp-api`` console script."""
+    """Entry-point for ``taste-api`` console script."""
     uvicorn.run(
         "api_server.server:app",
         host=global_config.server.host,
