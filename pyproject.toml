@@ -1,7 +1,7 @@
 [project]
-name = "mcp-template"
+name = "taste"
 version = "0.1.1"
-description = "🪛 CLI tool template (python) with batteries included. Auto-install, updates, linting, dead code analysis, and a whole lot more."
+description = "Give your AI agent real tools - one service registry over CLI, MCP, and HTTP."
 authors = [
     { name = "Miyamura80", email = "eitomiyamura@gmail.com" }
 ]
@@ -60,10 +60,8 @@ dependencies = [
     "PyJWT[crypto]>=2.10.0",
     "cryptography>=49.0.0",
     "itsdangerous>=2.2.0",
-    "stripe>=15.3.1",
     "limits>=5.8.0",
     "redis>=8.0.1",
-    "x402[fastapi,httpx]>=2.12.0",
     "starlette>=0.40.0",
     "google-api-python-client>=2.198.0",
     "google-auth>=2.53.0",
@@ -78,18 +76,18 @@ readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.urls]
-Homepage = "https://github.com/Miyamura80/MCP-Template"
-Repository = "https://github.com/Miyamura80/MCP-Template"
-Issues = "https://github.com/Miyamura80/MCP-Template/issues"
+Homepage = "https://github.com/Miyamura80/Taste"
+Repository = "https://github.com/Miyamura80/Taste"
+Issues = "https://github.com/Miyamura80/Taste/issues"
 
 [project.scripts]
-mymcp = "src.cli.app:main_cli"
+taste = "src.cli.app:main_cli"
 # Primary remote-MCP entrypoint: HTTP API + MCP (streamable HTTP) on one port.
-mymcp-serve = "api_server:main"
+taste-serve = "api_server:main"
 # Legacy stdio transport, kept for local Claude Desktop / dev only.
-mymcp-mcp = "mcp_server:main"
-# Deprecated alias for mymcp-serve; prefer the new name.
-mymcp-api = "api_server:main"
+taste-mcp = "mcp_server:main"
+# Deprecated alias for taste-serve; prefer the new name.
+taste-api = "api_server:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -100,7 +98,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src", "common", "utils", "services", "models", "mcp_server", "db", "api_server"]
-force-include = {"mcp_server/apps/gmail_composer/dist/mcp-app.html" = "mcp_server/apps/gmail_composer/dist/mcp-app.html", "mcp_server/apps/gmail_inbox/dist/mcp-app.html" = "mcp_server/apps/gmail_inbox/dist/mcp-app.html", "mcp_server/apps/settings/dist/mcp-app.html" = "mcp_server/apps/settings/dist/mcp-app.html", "mcp_server/apps/pdf_signer/dist/mcp-app.html" = "mcp_server/apps/pdf_signer/dist/mcp-app.html", "docs/content/docs" = "docs/content/docs"}
+force-include = {"docs/content/docs" = "docs/content/docs"}
 
 [tool.ruff]
 line-length = 88
@@ -176,7 +174,6 @@ exclude = [
     "tests/cli/test_stdin.py",
     "tests/test_rate_limit.py",
     "tests/test_health_enhanced.py",
-    "tests/test_billing.py",
     "tests/test_idempotency.py",
     "tests/test_enhancer_fallback.py",
     "tests/test_image_proxy.py",
@@ -203,9 +200,6 @@ exclude = [
     "mcp_server/",
     "db/",
     "api_server/",
-    "src/payments/",
-    "tests/test_agentic_payments.py",
-    "tests/test_agentic_payments_api.py",
     "tests/test_enhancers.py",
     "tests/test_mcp_server.py",
     "tests/test_mcp_remote.py",

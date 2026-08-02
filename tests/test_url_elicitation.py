@@ -22,10 +22,8 @@ from mcp.types import (
     UrlElicitationCapability,
 )
 
-from common import global_config
 from mcp_server.url_elicitation import _client_url_support, reraise_with_elicitation
 from services import ConnectRequiredError
-from services.gmail_svc import GmailNotConnectedError
 from tests.test_template import TestTemplate
 
 
@@ -38,34 +36,51 @@ def _session_with(capabilities: ClientCapabilities | None) -> ServerSession:
     return cast(ServerSession, fake)
 
 
-def _google_configured():
-    return (
-        patch.object(global_config, "GOOGLE_CLIENT_ID", "test-client"),
-        patch.object(
-            global_config,
-            "GOOGLE_REDIRECT_URI",
-            "http://localhost:8000/api/v1/auth/google/callback",
-        ),
-    )
+class _StubNotConnectedError(ConnectRequiredError):
+    """Minimal ConnectRequiredError subclass standing in for a real integration.
+
+    The template ships no OAuth-backed service, so the contract is exercised
+    against a stub; a real integration subclasses ConnectRequiredError the
+    same way.
+    """
+
+    _AUTH_ENDPOINT = "https://accounts.example.com/o/oauth2/v2/auth"
+    #: Stands in for a deployment-level OAuth client id; None = unconfigured.
+    client_id: str | None = None
+
+    def __init__(self, user_id: str) -> None:
+        super().__init__(
+            user_id,
+            "Connect your account, then retry.",
+            elicitation_message="Connect your Example account to continue.",
+        )
+
+    def build_auth_url(self) -> str | None:
+        if not self.client_id:
+            return None
+        # The signed state carries the user identity, per the connect contract.
+        return (
+            f"{self._AUTH_ENDPOINT}?client_id={self.client_id}"
+            f"&state=signed-{self.user_id}"
+        )
 
 
 class TestConnectRequiredContract(TestTemplate):
-    def test_gmail_error_implements_the_contract(self):
-        exc = GmailNotConnectedError("user-1")
+    def test_subclass_implements_the_contract(self):
+        exc = _StubNotConnectedError("user-1")
         assert isinstance(exc, ConnectRequiredError)
         assert exc.user_id == "user-1"
-        assert "Gmail" in exc.elicitation_message
+        assert "Example" in exc.elicitation_message
 
-    def test_auth_url_none_when_google_unconfigured(self):
-        with patch.object(global_config, "GOOGLE_CLIENT_ID", None):
-            assert GmailNotConnectedError("user-2").build_auth_url() is None
+    def test_auth_url_none_when_unconfigured(self):
+        with patch.object(_StubNotConnectedError, "client_id", None):
+            assert _StubNotConnectedError("user-2").build_auth_url() is None
 
     def test_auth_url_minted_when_configured(self):
-        p1, p2 = _google_configured()
-        with p1, p2:
-            url = GmailNotConnectedError("user-3").build_auth_url()
+        with patch.object(_StubNotConnectedError, "client_id", "test-client"):
+            url = _StubNotConnectedError("user-3").build_auth_url()
         assert url is not None
-        assert urlparse(url).netloc == "accounts.google.com"
+        assert urlparse(url).netloc == "accounts.example.com"
 
 
 class TestClientUrlSupport(TestTemplate):
@@ -101,9 +116,11 @@ class TestReraiseWithElicitation(TestTemplate):
     def test_converts_when_client_declares_url(self):
         cap = ElicitationCapability(url=UrlElicitationCapability())
         session = _session_with(ClientCapabilities(elicitation=cap))
-        exc = GmailNotConnectedError("user-7")
-        p1, p2 = _google_configured()
-        with p1, p2, pytest.raises(UrlElicitationRequiredError) as excinfo:
+        exc = _StubNotConnectedError("user-7")
+        with (
+            patch.object(_StubNotConnectedError, "client_id", "test-client"),
+            pytest.raises(UrlElicitationRequiredError) as excinfo,
+        ):
             reraise_with_elicitation(session, exc)
 
         err = excinfo.value.error
@@ -116,45 +133,48 @@ class TestReraiseWithElicitation(TestTemplate):
         assert elic.message == exc.elicitation_message
 
         parsed = urlparse(elic.url)
-        assert parsed.netloc == "accounts.google.com"
+        assert parsed.netloc == "accounts.example.com"
         # Identity binding per the spec: the signed state in the auth URL
         # carries the user, not any client-supplied value.
-        assert parse_qs(parsed.query)["state"]
+        assert parse_qs(parsed.query)["state"] == ["signed-user-7"]
 
         # The top-level message must keep naive hosts (no -32042 support)
         # self-recovering: original recovery script + the raw auth URL.
-        assert "gmail_connect" in err.message
+        assert str(exc) in err.message
         assert elic.url in err.message
         assert excinfo.value.__cause__ is exc
 
     def test_converts_when_capabilities_unknown(self):
-        exc = GmailNotConnectedError("user-8")
-        p1, p2 = _google_configured()
-        with p1, p2, pytest.raises(UrlElicitationRequiredError):
+        exc = _StubNotConnectedError("user-8")
+        with (
+            patch.object(_StubNotConnectedError, "client_id", "test-client"),
+            pytest.raises(UrlElicitationRequiredError),
+        ):
             reraise_with_elicitation(_session_with(None), exc)
 
     def test_reraises_original_when_client_declares_form_only(self):
         session = _session_with(ClientCapabilities(elicitation=ElicitationCapability()))
-        exc = GmailNotConnectedError("user-9")
-        p1, p2 = _google_configured()
-        with p1, p2, pytest.raises(GmailNotConnectedError) as excinfo:
+        exc = _StubNotConnectedError("user-9")
+        with (
+            patch.object(_StubNotConnectedError, "client_id", "test-client"),
+            pytest.raises(_StubNotConnectedError) as excinfo,
+        ):
             reraise_with_elicitation(session, exc)
         assert excinfo.value is exc
 
-    def test_reraises_original_when_google_oauth_unconfigured(self):
-        exc = GmailNotConnectedError("user-10")
+    def test_reraises_original_when_connect_flow_unconfigured(self):
+        exc = _StubNotConnectedError("user-10")
         with (
-            patch.object(global_config, "GOOGLE_CLIENT_ID", None),
-            pytest.raises(GmailNotConnectedError) as excinfo,
+            patch.object(_StubNotConnectedError, "client_id", None),
+            pytest.raises(_StubNotConnectedError) as excinfo,
         ):
             reraise_with_elicitation(_session_with(None), exc)
         assert excinfo.value is exc
 
     def test_elicitation_ids_are_unique(self):
-        exc = GmailNotConnectedError("user-11")
-        p1, p2 = _google_configured()
+        exc = _StubNotConnectedError("user-11")
         ids = set()
-        with p1, p2:
+        with patch.object(_StubNotConnectedError, "client_id", "test-client"):
             for _ in range(3):
                 with pytest.raises(UrlElicitationRequiredError) as excinfo:
                     reraise_with_elicitation(_session_with(None), exc)

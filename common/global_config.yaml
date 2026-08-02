@@ -26,7 +26,7 @@ llm_config:
 ask:
   enabled: false
   corpus_path: docs/content/docs
-  docs_base_url: https://docs.gmailmcp.com
+  docs_base_url: https://docs.example.com
   top_k: 5
   rate_limit_per_minute: 20
 
@@ -125,14 +125,14 @@ server:
 # deployed endpoint URL is NOT set here - it comes from MCP_PUBLIC_URL so the
 # card and OAuth resource metadata stay in lockstep.
 branding:
-  name: "io.github.Miyamura80/MCP-Template"   # reverse-DNS registry id (one slash)
-  title: "GmailMCP"                            # human-readable display name
+  name: "io.github.Miyamura80/Taste"   # reverse-DNS registry id (one slash)
+  title: "Taste"                            # human-readable display name
   description: "Give your AI agent real tools - one service registry over CLI, MCP, and HTTP."
-  website_url: "https://gmailmcp.com"
-  repository_url: "https://github.com/Miyamura80/MCP-Template"
+  website_url: "https://example.com"
+  repository_url: "https://github.com/Miyamura80/Taste"
   repository_source: "github"
   icons:
-    - src: "https://gmailmcp.com/favicon.svg"
+    - src: "https://example.com/favicon.svg"
       mime_type: "image/svg+xml"
       sizes: ["any"]
 
@@ -144,17 +144,6 @@ branding:
 # 32-byte seed); set it to advertise a verifiable agent identity. Unset -> 404.
 web_bot_auth:
   key_lifetime_days: 365   # per-key exp, relative to first publish
-
-########################################################
-# Gmail integration
-########################################################
-gmail:
-  # Max decoded size (bytes) of a single attachment returned by
-  # gmail_get_attachment before it is rejected. gmail_get_attachment returns the
-  # file's base64 straight into the model's context, so this guards the context
-  # window against an unbounded fetch. Set absurdly high for now (~1 TiB =
-  # effectively unbounded); tighten to a real limit later.
-  max_attachment_bytes: 1099511627776
 
 ########################################################
 # CLI

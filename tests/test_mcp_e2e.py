@@ -16,7 +16,6 @@ import json
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from sqlalchemy import create_engine
@@ -25,16 +24,12 @@ from sqlalchemy.pool import StaticPool
 
 from api_server.auth.api_key_auth import create_api_key
 from api_server.server import app
-from common import global_config, token_encryption
-from common.token_encryption import FernetEncryption
 from db import engine as db_engine
 from db.base import Base
 from mcp_server._tool_factory import make_tool
 from mcp_server.enhancers import _enhancers, enhance
 from mcp_server.server import mcp
-from models.curation import CurationBucket, ThreadJudgment
 from services import _registry, get_registry, service
-from services.curation_ledger import upsert_judgments
 from tests.test_template import TestTemplate
 
 _PROTOCOL_VERSION = "2025-03-26"
@@ -66,8 +61,8 @@ def _read_sse_first_message(response) -> dict:
 
     Deliberately NOT ``iter_lines()``: that splits on Unicode line
     boundaries (U+2028, NEL, ...) which legally appear unescaped inside
-    JSON string payloads (e.g. the pdf_signer app bundle's inlined pdf.js
-    worker), truncating the frame. The SSE spec ends lines on CR/LF only.
+    JSON string payloads, truncating the frame. The SSE spec ends lines
+    on CR/LF only.
     """
     normalized = response.text.replace("\r\n", "\n").replace("\r", "\n")
     for line in normalized.split("\n"):
@@ -176,137 +171,44 @@ def _wire_session(user_id: str):
 
 
 class TestMCPWireE2E(TestTemplate):
-    def test_tools_list_serializes_schemas_and_app_meta(self):
-        with _wire_session("u-e2e-list") as session:
-            tools = {t["name"]: t for t in session.request("tools/list")["tools"]}
+    def test_tools_list_serializes_output_schema(self):
+        """A headless service crosses the wire with a derived outputSchema and
+        no UI metadata. Registered on the fly because the template ships its
+        default services as CLI-only (see _EXCLUDED_DEFAULT_MCP_SERVICES)."""
 
-            # Enhanced tools publish outputSchema even though they return
-            # CallToolResult (the _patch_output_schema path), and declare
-            # their ui:// resource in tools/list per the MCP Apps spec.
-            compose = tools["gmail_compose"]
-            assert compose["outputSchema"]["type"] == "object"
-            assert compose["_meta"]["ui"]["resourceUri"].startswith("ui://mymcp/")
-            assert (
-                compose["_meta"]["ui/resourceUri"]
-                == (compose["_meta"]["ui"]["resourceUri"])
-            )
+        class _In(BaseModel):
+            x: int = 0
 
-            # Headless tools carry no UI metadata on the wire.
-            assert "_meta" not in tools["gmail_send"] or (
-                tools["gmail_send"].get("_meta") in (None, {})
-            )
+        class _Out(BaseModel):
+            value: int
 
-    def test_tools_call_returns_structured_content(self):
-        with _wire_session("u-e2e-call") as session:
-            result = session.request(
-                "tools/call", {"name": "gmail_get_focused_email", "arguments": {}}
-            )
-            # No focused thread for a fresh user; auth guard substitutes the
-            # verified principal for the (empty) wire user_id.
-            assert result["structuredContent"]["focused"] is False
-            assert result["isError"] is False
-            text_block = result["content"][0]
-            assert text_block["type"] == "text"
-            assert json.loads(text_block["text"])["focused"] is False
+        svc_name = "__e2e_headless_test"
 
-    def test_resources_read_serves_app_html(self):
-        with _wire_session("u-e2e-res") as session:
-            resources = session.request("resources/list")["resources"]
-            ui_resources = [
-                r for r in resources if str(r["uri"]).startswith("ui://mymcp/")
-            ]
-            assert ui_resources, "expected ui:// resources in resources/list"
-            assert all(
-                r["mimeType"] == "text/html;profile=mcp-app" for r in ui_resources
-            )
+        @service(name=svc_name, description="e2e", input_model=_In, output_model=_Out)
+        def _svc(input: _In) -> _Out:
+            return _Out(value=input.x + 1)
 
-            contents = session.request(
-                "resources/read", {"uri": ui_resources[0]["uri"]}
-            )["contents"]
-            assert len(contents) == 1
-            assert contents[0]["mimeType"] == "text/html;profile=mcp-app"
-            assert contents[0]["text"].lstrip().lower().startswith("<!doctype html>")
-
-    def test_inbox_get_curation_over_wire(self):
-        """inbox_get_curation crosses the wire as a real enhanced tool: banked
-        verdicts + coverage in structuredContent, and the gmail_inbox app in
-        both tools/list and the CallToolResult _meta.ui."""
-        user = "u-e2e-curation"
-        enc = FernetEncryption(Fernet.generate_key().decode())
-        stubs = [{"id": "t1", "historyId": "100"}]
-        with (
-            patch.object(token_encryption, "require_encryption", return_value=enc),
-            _wire_session(user) as session,
-        ):
-            # Bank one verdict into the same in-memory DB the wire uses.
-            upsert_judgments(
-                user,
-                [
-                    ThreadJudgment(
-                        thread_id="t1",
-                        bucket=CurationBucket.needs_reply,
-                        importance=0.9,
-                        summary="deck due Friday",
-                    )
-                ],
-                history_ids={"t1": "100"},
-            )
-            with (
-                patch("services.inbox_curation_svc._get_gmail_client"),
-                patch(
-                    "services.inbox_curation_svc._list_thread_stubs",
-                    return_value=stubs,
-                ),
-            ):
+        try:
+            entry = next(e for e in get_registry() if e.name == svc_name)
+            make_tool(mcp, entry)
+            with _wire_session("u-e2e-list") as session:
                 tools = {t["name"]: t for t in session.request("tools/list")["tools"]}
-                # Enhanced read tool: publishes outputSchema + its ui:// app.
-                gc = tools["inbox_get_curation"]
-                assert gc["outputSchema"]["type"] == "object"
-                assert gc["_meta"]["ui"]["resourceUri"] == "ui://mymcp/gmail_inbox"
-                # The mutating write-back stays headless (no UI on the wire).
-                save_meta = tools["inbox_save_curation"].get("_meta")
-                assert save_meta in (None, {})
+                tool = tools[svc_name]
+                assert tool["outputSchema"]["type"] == "object"
+                # Headless tools carry no UI metadata on the wire.
+                assert tool.get("_meta") in (None, {})
 
                 result = session.request(
-                    "tools/call", {"name": "inbox_get_curation", "arguments": {}}
+                    "tools/call", {"name": svc_name, "arguments": {"x": 4}}
                 )
-                sc = result["structuredContent"]
-                assert sc["coverage"] == {"curated": 1, "stale": 0, "uncurated": 0}
-                assert sc["records"][0]["thread_id"] == "t1"
-                assert sc["records"][0]["summary"] == "deck due Friday"
-                assert sc["records"][0]["ledger_status"] == "curated"
+                assert result["structuredContent"] == {"value": 5}
                 assert result["isError"] is False
-                # Enhancer attached the dashboard app on the result.
-                assert result["_meta"]["ui"]["resourceUri"] == "ui://mymcp/gmail_inbox"
-
-    def test_not_connected_gmail_tool_returns_url_elicitation_error(self):
-        """A Gmail tool called by a user with no linked account surfaces the
-        SEP-1036 URL-elicitation-required error (JSON-RPC -32042) carrying the
-        Google consent URL - on both the headless (gmail_list_inbox) and
-        enhanced (inbox_get_curation) registration paths. The stateless mount
-        never sees client capabilities, so conversion is the default."""
-        with (
-            patch.object(global_config, "GOOGLE_CLIENT_ID", "e2e-client"),
-            patch.object(
-                global_config,
-                "GOOGLE_REDIRECT_URI",
-                "http://localhost:8000/api/v1/auth/google/callback",
-            ),
-            _wire_session("u-e2e-nolink") as session,
-        ):
-            for tool_name in ("gmail_list_inbox", "inbox_get_curation"):
-                error = session.request_error(
-                    "tools/call", {"name": tool_name, "arguments": {}}
-                )
-                assert error["code"] == -32042, f"{tool_name}: {error}"
-                elic = error["data"]["elicitations"][0]
-                assert elic["mode"] == "url"
-                assert elic["elicitationId"].startswith("connect-")
-                assert elic["url"].startswith("https://accounts.google.com/")
-                # Hosts that don't understand -32042 fall back to the message
-                # text alone, so it must stay self-recovering on its own.
-                assert "gmail_connect" in error["message"]
-                assert elic["url"] in error["message"]
+                text_block = result["content"][0]
+                assert text_block["type"] == "text"
+                assert json.loads(text_block["text"]) == {"value": 5}
+        finally:
+            _registry[:] = [e for e in _registry if e.name != svc_name]
+            mcp._tool_manager._tools.pop(svc_name, None)
 
     def test_enhanced_tool_call_assembles_full_result_on_wire(self):
         """Register a throwaway enhanced tool and call it through the wire,
@@ -329,12 +231,12 @@ class TestMCPWireE2E(TestTemplate):
         async def _enhancer(tool):
             result = tool.call()
             tool.send_text("extra block", audience=["user"])
-            tool.send_app("ui://mymcp/__e2e_test_app")
+            tool.send_app("ui://taste/__e2e_test_app")
             return result
 
-        entry = next(e for e in get_registry() if e.name == svc_name)
-        make_tool(mcp, entry)
         try:
+            entry = next(e for e in get_registry() if e.name == svc_name)
+            make_tool(mcp, entry)
             with _wire_session("u-e2e-enh") as session:
                 result = session.request(
                     "tools/call", {"name": svc_name, "arguments": {"x": 7}}
@@ -345,86 +247,9 @@ class TestMCPWireE2E(TestTemplate):
                 assert blocks[1]["text"] == "extra block"
                 assert blocks[1]["annotations"]["audience"] == ["user"]
                 meta = result["_meta"]
-                assert meta["ui"]["resourceUri"] == "ui://mymcp/__e2e_test_app"
-                assert meta["ui/resourceUri"] == "ui://mymcp/__e2e_test_app"
+                assert meta["ui"]["resourceUri"] == "ui://taste/__e2e_test_app"
+                assert meta["ui/resourceUri"] == "ui://taste/__e2e_test_app"
         finally:
             _registry[:] = [e for e in _registry if e.name != svc_name]
             _enhancers.pop(svc_name, None)
             mcp._tool_manager._tools.pop(svc_name, None)
-
-
-class TestPdfToolsWireE2E(TestTemplate):
-    """US-004/FR-10: page images cross the wire as ImageContent, and no PDF
-    bytes ever appear in an LLM-visible tool result."""
-
-    def test_pdf_open_renders_image_content_and_leaks_no_pdf_bytes(self):
-        from models.pdf_forms import PdfOpenResult  # noqa: PLC0415 - test-local
-        from services.pdf_ports import ResolvedPdfSource  # noqa: PLC0415 - test-local
-        from tests.pdf_fixtures import make_flat_pdf  # noqa: PLC0415 - test-local
-
-        pdf_bytes = make_flat_pdf()
-
-        def _stub_resolver(user_id, source):
-            return ResolvedPdfSource(filename="nda.pdf", data=pdf_bytes)
-
-        with (
-            patch("services.pdf_forms_svc.resolve_source", _stub_resolver),
-            _wire_session("u-e2e-pdf") as session,
-        ):
-            result = session.request(
-                "tools/call",
-                {
-                    "name": "pdf_open",
-                    "arguments": {
-                        "source": {
-                            "type": "gmail_attachment",
-                            "message_id": "m1",
-                            "attachment_id": "a1",
-                        },
-                        "render_pages": [1],
-                    },
-                },
-            )
-            assert result["isError"] is False
-            structured = result["structuredContent"]
-            assert structured["doc_id"]
-            assert structured["has_acroform"] is False
-            assert structured["page_count"] == 1
-            # Valid per outputSchema: the enhancer moved the PNGs out of the
-            # structured result into ImageContent blocks.
-            PdfOpenResult.model_validate(structured)
-            assert structured["page_images"] == []
-            images = [b for b in result["content"] if b["type"] == "image"]
-            assert len(images) == 1
-            assert images[0]["mimeType"] == "image/png"
-
-            # FR-10: no PDF bytes in any LLM-visible form - neither raw nor
-            # base64 ("%PDF" encodes to "JVBERi" at offset 0).
-            wire_payload = json.dumps(result)
-            assert "%PDF" not in wire_payload
-            assert "JVBERi" not in wire_payload
-
-    def test_pdf_tools_are_listed_with_output_schema(self):
-        with _wire_session("u-e2e-pdf-list") as session:
-            tools = {t["name"]: t for t in session.request("tools/list")["tools"]}
-            for name in ("pdf_open", "pdf_edit", "pdf_export"):
-                assert name in tools, f"{name} missing from tools/list"
-                assert tools[name]["outputSchema"]["type"] == "object"
-            # The signing gate declares the pdf_signer app in tools/list so
-            # hosts can pre-fetch the iframe HTML.
-            gate = tools["pdf_request_signature"]
-            assert gate["_meta"]["ui"]["resourceUri"] == "ui://mymcp/pdf_signer"
-            # App-only ceremony tools carry the visibility hint on the wire.
-            sign_tool = tools["pdf_signer.sign"]
-            assert sign_tool["_meta"]["ui"]["visibility"] == ["app"]
-
-    def test_pdf_signer_app_resource_serves_built_html(self):
-        with _wire_session("u-e2e-pdf-app") as session:
-            contents = session.request(
-                "resources/read", {"uri": "ui://mymcp/pdf_signer"}
-            )["contents"]
-            assert contents[0]["mimeType"] == "text/html;profile=mcp-app"
-            html = contents[0]["text"]
-            assert html.lstrip().lower().startswith("<!doctype html>")
-            # The committed bundle is the built app, not the placeholder.
-            assert "not built" not in html

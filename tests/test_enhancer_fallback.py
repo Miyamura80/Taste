@@ -5,6 +5,8 @@ re-execute a mutating service (duplicate Gmail draft / double charge).
 """
 
 import asyncio
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from mcp.server.fastmcp import FastMCP
@@ -13,8 +15,14 @@ from pydantic import BaseModel
 from mcp_server._tool_factory import make_tool
 from mcp_server.enhancers import _enhancers, enhance
 from services import _registry, get_registry, service
-from tests.test_enhancers import _make_mock_ctx
 from tests.test_template import TestTemplate
+
+
+def _make_mock_ctx(*, can_elicit: bool = True, elicit_result: Any = None) -> MagicMock:
+    ctx = MagicMock()
+    ctx.session.check_client_capability = MagicMock(return_value=can_elicit)
+    ctx.elicit = AsyncMock(return_value=elicit_result)
+    return ctx
 
 
 async def _crash_after_call(tool):

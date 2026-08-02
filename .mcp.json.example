@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "mymcp": {
+    "taste": {
       "command": "uvx",
       "args": [
-        "mymcp-mcp"
+        "taste-mcp"
       ],
       "env": {}
     }

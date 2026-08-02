@@ -25,11 +25,9 @@ from api_server.auth.api_key_auth import get_user_id_for_key_hash
 from api_server.auth.workos_auth import verify_workos_token
 
 # Paths that bypass rate limiting.
-from api_server.billing.stripe_config import STRIPE_WEBHOOK_PATH
 from db.engine import use_db_session
-from db.models.user_subscriptions import UserSubscription
 
-_EXEMPT_PATHS = frozenset({"/health", "/mcp", "/ask", STRIPE_WEBHOOK_PATH})
+_EXEMPT_PATHS = frozenset({"/health", "/mcp", "/ask"})
 _EXEMPT_PREFIXES = ("/mcp/",)
 
 # TTL cache for API key hash → subscription tier (avoids DB hit on every request)
@@ -202,12 +200,9 @@ def _lookup_tier_sync(cache_key: str, *, user_id: str | None = None) -> str:
                 resolved_user_id = get_user_id_for_key_hash(session, cache_key)
 
             if resolved_user_id:
-                sub = (
-                    session.query(UserSubscription.subscription_tier)
-                    .filter_by(user_id=resolved_user_id)
-                    .first()
-                )
-                tier = sub.subscription_tier if sub else "default"
+                # No subscription layer in this project: every valid principal
+                # gets the config-driven default tier.
+                tier = "default"
             elif user_id is None:
                 # API key path: key hash not found in DB
                 tier = _INVALID_KEY_TIER

@@ -7,7 +7,7 @@ Two registration paths (see `_tool_factory.py` for details):
   user input, attach images/audio, or render an MCP App (iframe dashboard).
 
 Primary transport is streamable HTTP, mounted on the FastAPI app at ``/mcp``
-(see ``api_server/server.py``). Stdio is supported via the ``mymcp-mcp``
+(see ``api_server/server.py``). Stdio is supported via the ``taste-mcp``
 console script for local dev / Claude Desktop only.
 
 See ``mcp_server/MCP_UI_ARCHITECTURE.md`` and ``mcp_server/MCP_UI_EDGE_CASES.md``.
@@ -126,7 +126,7 @@ def _transport_security() -> TransportSecuritySettings:
 # per-session state, which is what actually fixes the error - and it's
 # forward-compatible with the RC.
 mcp: FastMCP = FastMCP(
-    "mymcp",
+    "taste",
     instructions=_MCP_INSTRUCTIONS,
     transport_security=_transport_security(),
     stateless_http=global_config.server.mcp_stateless_http,
@@ -198,7 +198,7 @@ def _register_app_resources(mcp: FastMCP) -> None:
         if not app_dir.is_dir():
             continue
         html_path = app_dir / "dist" / "mcp-app.html"
-        uri = f"ui://mymcp/{app_dir.name}"
+        uri = f"ui://taste/{app_dir.name}"
         _register_app_resource(mcp, uri, html_path, app_dir.name)
 
 
@@ -254,8 +254,8 @@ async def lifespan(_app):
 def main() -> None:
     """Run the MCP server on stdio transport (legacy / local-dev only)."""
     print(
-        "[mymcp-mcp] stdio transport is legacy; "
-        "prefer `mymcp-serve` and connect via streamable HTTP at /mcp.",
+        "[taste-mcp] stdio transport is legacy; "
+        "prefer `taste-serve` and connect via streamable HTTP at /mcp.",
         file=sys.stderr,
     )
     server = build_mcp_server()

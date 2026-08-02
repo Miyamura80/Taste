@@ -1,7 +1,7 @@
 """Add scopes column to api_keys table.
 
 Revision ID: 003
-Revises: 002
+Revises: 001
 Create Date: 2026-03-15
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "003"
-down_revision: str | None = "002"
+down_revision: str | None = "001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

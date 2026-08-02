@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Request
 
 from api_server.auth import AuthenticatedUser
 from api_server.auth.scopes import SERVICES_EXECUTE, require_scopes
-from api_server.billing.limits import ensure_daily_limit
 from api_server.idempotency import execute_idempotent
 from services import ServiceEntry, discover_services, get_registry
 
@@ -44,9 +43,6 @@ def _make_route(entry: ServiceEntry) -> None:
             body = body.model_copy(update={"user_id": _user.user_id})
 
         def _compute():
-            # Quota is checked inside the compute so idempotent replays don't
-            # double-count usage; the first execution still enforces the limit.
-            ensure_daily_limit(_user.user_id)
             return func(body)
 
         if not entry.mutating:

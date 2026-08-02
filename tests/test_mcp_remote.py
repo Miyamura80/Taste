@@ -10,7 +10,6 @@ from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -114,7 +113,7 @@ class TestMCPRemote(TestTemplate):
             assert resp.status_code == 200, resp.text
             msg = _read_sse_first_message(resp)
             assert msg["jsonrpc"] == "2.0"
-            assert msg["result"]["serverInfo"]["name"] == "mymcp"
+            assert msg["result"]["serverInfo"]["name"] == "taste"
 
     def test_health_endpoint_unaffected_by_mcp_auth(self):
         # Plain TestClient (no lifespan) -- /health doesn't need the MCP session
@@ -152,7 +151,9 @@ class TestMCPAuthGuards(TestTemplate):
         finally:
             reset_current_user(token)
 
-    def test_quota_exhausted_raises(self):
+    def test_quota_check_is_a_noop(self):
+        """This project ships no billing layer, so the MCP quota guard must
+        pass every authenticated call straight through."""
         user = AuthenticatedUser(
             user_id="u-quota",
             auth_method="api_key",
@@ -160,12 +161,6 @@ class TestMCPAuthGuards(TestTemplate):
         )
         token = set_current_user(user)
         try:
-            with patch(
-                "api_server.billing.limits.ensure_daily_limit",
-                side_effect=HTTPException(status_code=402, detail="quota exceeded"),
-            ):
-                with pytest.raises(HTTPException) as exc_info:
-                    _check_quota()
-                assert exc_info.value.status_code == 402
+            assert _check_quota() is None
         finally:
             reset_current_user(token)

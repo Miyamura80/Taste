@@ -5,7 +5,7 @@ before the handler executes and updated with the cached response afterwards so
 retries replay the stored result instead of re-running the side effect.
 
 Revision ID: 008
-Revises: 007
+Revises: 003
 Create Date: 2026-06-22
 """
 
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "008"
-down_revision: str | None = "007"
+down_revision: str | None = "003"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -20,7 +20,6 @@ from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from api_server.auth import AuthenticatedUser
 from api_server.auth.scopes import SERVICES_EXECUTE, require_scopes
-from api_server.billing.limits import ensure_daily_limit
 from models.doctor import DoctorStreamDone, DoctorStreamInput
 from services.doctor_svc import iter_doctor
 
@@ -58,5 +57,4 @@ def stream_doctor(
     sync generator in a threadpool, so the blocking subprocess checks never
     stall the event loop.
     """
-    ensure_daily_limit(user.user_id)
     return EventSourceResponse(_doctor_events(body))

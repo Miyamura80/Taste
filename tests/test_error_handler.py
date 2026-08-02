@@ -27,15 +27,6 @@ def _make_app():
     def crash():
         raise RuntimeError("unexpected")
 
-    @app.get("/stripe-error")
-    def stripe_error():
-        # Simulate a Stripe-like error
-        class FakeStripeError(Exception):
-            pass
-
-        FakeStripeError.__module__ = "stripe.error"
-        raise FakeStripeError("card declined")
-
     return app
 
 
@@ -73,11 +64,3 @@ class TestErrorHandler(TestTemplate):
         body = resp.json()
         assert body["error"]["code"] == "internal_error"
         assert body["error"]["message"] == "Internal server error"
-
-    def test_stripe_error_sanitized(self):
-        client = TestClient(_make_app(), raise_server_exceptions=False)
-        resp = client.get("/stripe-error")
-        assert resp.status_code == 502
-        body = resp.json()
-        assert body["error"]["message"] == "Payment processing error"
-        assert "card declined" not in str(body)

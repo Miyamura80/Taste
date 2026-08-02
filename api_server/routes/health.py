@@ -13,7 +13,7 @@ from fastapi import APIRouter
 from loguru import logger as log
 
 try:
-    _APP_VERSION = _pkg_version("mcp-template")
+    _APP_VERSION = _pkg_version("taste")
 except PackageNotFoundError:
     _APP_VERSION = "0.1.0"
 
@@ -144,38 +144,6 @@ def _check_redis() -> dict:
         return {"status": "error", "message": type(exc).__name__}
 
 
-def _check_stripe() -> dict:
-    """Check Stripe SDK initialization (config + key presence).
-
-    Does not make a live API call to avoid hitting Stripe rate limits
-    from frequent health probes.
-    """
-    try:
-        # Deliberately lazy: the except below explicitly maps "Stripe SDK /
-        # config / import failure" to a status string; imports must stay
-        # inside the try for that to hold when billing is pruned.
-        from common import global_config  # noqa: PLC0415
-
-        has_key = bool(
-            getattr(global_config, "STRIPE_SECRET_KEY", None)
-            or getattr(global_config, "STRIPE_TEST_SECRET_KEY", None)
-        )
-        if not has_key:
-            return {"status": "not_configured"}
-
-        # (same probe rationale as above)
-        from api_server.billing.stripe_config import ensure_stripe  # noqa: PLC0415
-
-        if not ensure_stripe():
-            return {"status": "error", "message": "initialization_failed"}
-
-        return {"status": "ok"}
-    except Exception as exc:  # noqa: BLE001
-        # Health probe: report any Stripe SDK / config / import failure as a
-        # structured status rather than crashing the /health endpoint.
-        return {"status": "error", "message": type(exc).__name__}
-
-
 _git_commit_lock = threading.Lock()
 _git_commit_value: str | None = None
 _git_commit_resolved = False
@@ -234,7 +202,6 @@ def health_check():
         "api": {"status": "ok"},
         "database": _cached_check("database", _check_database),
         "redis": _cached_check("redis", _check_redis),
-        "stripe": _cached_check("stripe", _check_stripe),
     }
 
     # "ok" if all components are ok or not_configured; "degraded" if any errored
