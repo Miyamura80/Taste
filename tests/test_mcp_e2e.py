@@ -188,9 +188,9 @@ class TestMCPWireE2E(TestTemplate):
         def _svc(input: _In) -> _Out:
             return _Out(value=input.x + 1)
 
-        entry = next(e for e in get_registry() if e.name == svc_name)
-        make_tool(mcp, entry)
         try:
+            entry = next(e for e in get_registry() if e.name == svc_name)
+            make_tool(mcp, entry)
             with _wire_session("u-e2e-list") as session:
                 tools = {t["name"]: t for t in session.request("tools/list")["tools"]}
                 tool = tools[svc_name]
@@ -234,9 +234,9 @@ class TestMCPWireE2E(TestTemplate):
             tool.send_app("ui://taste/__e2e_test_app")
             return result
 
-        entry = next(e for e in get_registry() if e.name == svc_name)
-        make_tool(mcp, entry)
         try:
+            entry = next(e for e in get_registry() if e.name == svc_name)
+            make_tool(mcp, entry)
             with _wire_session("u-e2e-enh") as session:
                 result = session.request(
                     "tools/call", {"name": svc_name, "arguments": {"x": 7}}

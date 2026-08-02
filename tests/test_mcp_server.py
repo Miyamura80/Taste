@@ -67,9 +67,9 @@ class TestMCPServer(TestTemplate):
         async def _enhancer(tool):
             return tool.call()
 
-        entry = next(e for e in get_registry() if e.name == svc_name)
-        make_tool(mcp, entry)
         try:
+            entry = next(e for e in get_registry() if e.name == svc_name)
+            make_tool(mcp, entry)
             tool = mcp._tool_manager._tools[svc_name]
             assert tool.output_schema == _Out.model_json_schema()
             assert tool.context_kwarg == "ctx"

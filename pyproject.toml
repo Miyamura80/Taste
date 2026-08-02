@@ -98,7 +98,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src", "common", "utils", "services", "models", "mcp_server", "db", "api_server"]
-force-include = {}
+force-include = {"docs/content/docs" = "docs/content/docs"}
 
 [tool.ruff]
 line-length = 88

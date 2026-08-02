@@ -1,7 +1,7 @@
 """Add scopes column to api_keys table.
 
 Revision ID: 003
-Revises: 002
+Revises: 001
 Create Date: 2026-03-15
 """
 

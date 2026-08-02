@@ -5,7 +5,7 @@ before the handler executes and updated with the cached response afterwards so
 retries replay the stored result instead of re-running the side effect.
 
 Revision ID: 008
-Revises: 007
+Revises: 003
 Create Date: 2026-06-22
 """
 
