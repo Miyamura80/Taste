@@ -9,8 +9,6 @@ from loguru import logger as log
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
 
-from api_server.billing.stripe_config import reset_stripe_on_auth_error
-
 # Map HTTP status codes to error code strings
 _STATUS_CODE_MAP: dict[int, str] = {
     400: "bad_request",
@@ -31,28 +29,6 @@ _STATUS_CODE_MAP: dict[int, str] = {
 
 def _error_code(status: int) -> str:
     return _STATUS_CODE_MAP.get(status, "error")
-
-
-try:
-    from stripe import AuthenticationError as _StripeAuthError
-    from stripe import StripeError as _StripeError
-except ImportError:
-    _StripeError = None  # ty: ignore[invalid-assignment]
-    _StripeAuthError = None  # ty: ignore[invalid-assignment]
-
-
-def _is_stripe_error(exc: Exception) -> bool:
-    """Check if an exception originates from Stripe."""
-    if _StripeError is not None and isinstance(exc, _StripeError):
-        return True
-    return type(exc).__module__.startswith("stripe")
-
-
-def _is_stripe_auth_error(exc: Exception) -> bool:
-    """Check if an exception is a Stripe AuthenticationError."""
-    if _StripeAuthError is not None and isinstance(exc, _StripeAuthError):
-        return True
-    return _is_stripe_error(exc) and type(exc).__name__ == "AuthenticationError"
 
 
 def _build_error_response(
@@ -186,20 +162,10 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
             return response
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             # Top-level HTTP error boundary: any unhandled exception in the request
             # pipeline must be converted to a structured 5xx response.
             log.exception("Unhandled exception in request {}", request_id)
-
-            # Sanitize Stripe errors
-            if _is_stripe_error(exc):
-                if _is_stripe_auth_error(exc):
-                    reset_stripe_on_auth_error()
-                return _build_error_response(
-                    502,
-                    "Payment processing error",
-                    request_id,
-                )
 
             return _build_error_response(
                 500,

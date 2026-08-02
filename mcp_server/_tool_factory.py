@@ -48,20 +48,8 @@ def _check_scopes() -> None:
 
 
 def _check_quota() -> None:
-    """Enforce daily quota for authenticated MCP tool calls.
-
-    Skips silently when no authenticated user is bound (CLI / stdio).
-    Called *after* input validation so malformed requests don't burn quota.
-    """
-    user = current_user()
-    if user is None:
-        return
-
-    # Circular import: api_server.server mounts mcp_server.server, which
-    # imports this module - api_server.* must only load at call time.
-    from api_server.billing.limits import ensure_daily_limit  # noqa: PLC0415
-
-    ensure_daily_limit(user.user_id)
+    """No-op: this project ships without a billing/quota layer."""
+    return
 
 
 def _current_session(mcp: FastMCP) -> ServerSession | None:

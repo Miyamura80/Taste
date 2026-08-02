@@ -68,7 +68,6 @@ Layering (top calls down, never the reverse):
 - **`utils/llm/`** - DSPY + LiteLLM wrapper with fallback model, Tenacity retries, LangFuse observability.
 - **`tests/`** - subclass `TestTemplate` (`tests/test_template.py:14`) for per-test config isolation.
 - **`docs/`** - Next.js + Fumadocs site; English source in `docs/content/en/`.
-- **`landing-page/`** - standalone Astro + Tailwind v4 marketing site, **separate** from `docs/` and the Python server, with its own Railway deploy (`landing-page/railway.toml`). Data-driven: all copy lives in `src/config/landing.ts`, design tokens in `src/styles/global.css` (`@theme`). Uses `bun`, never npm. See [`landing-page/README.md`](./landing-page/README.md).
 - **`.claude/`**, **`.agents/`**, **`.codex/`** - Claude/Codex agents and skills kept in sync by `scripts/sync_agent_config.py` (pre-commit enforced).
 
 **Don't add new files at the repo root** unless tooling requires it. Nest under an existing folder.
@@ -108,9 +107,11 @@ global_config.OPENAI_API_KEY  # secrets from .env
 from utils.llm.dspy_inference import DSPYInference
 import dspy
 
+
 class MySignature(dspy.Signature):
     input_field: str = dspy.InputField()
     output_field: str = dspy.OutputField()
+
 
 inf_module = DSPYInference(pred_signature=MySignature, observe=True)
 result = await inf_module.run(input_field="value")
@@ -121,6 +122,7 @@ result = await inf_module.run(input_field="value")
 ```python
 from tests.test_template import TestTemplate
 from tests.conftest import slow_test, nondeterministic_test
+
 
 class TestMyFeature(TestTemplate):
     def test_something(self):
@@ -186,6 +188,7 @@ don't.
 from mcp_server.enhancers import enhance
 from mcp_server.enhancers.base import EnhancedTool
 
+
 @enhance("my_service", fallback="headless")
 async def my_enhanced(tool: EnhancedTool[MyInput, MyOutput]) -> MyOutput:
     result = tool.call()
@@ -201,39 +204,23 @@ Then add `import mcp_server.enhancers.my_service  # noqa: F401` to
 
 ### MCP Apps (iframe dashboards)
 
-Apps live in `mcp_server/apps/<name>/`:
-- React + Vite + `vite-plugin-singlefile` (always bun, never npm)
-- `dist/mcp-app.html` is **committed** so the template works without Node
-- `make build_apps` rebuilds the bundle (developer-only; not part of CI)
-- `make dev_host` runs the upstream `@modelcontextprotocol/ext-apps` basic-host
-  for manual smoke testing
-
-When adding a new app, also add an entry to `[tool.hatch.build.targets.wheel]
-force-include` in `pyproject.toml` so the HTML ships in the wheel.
-
-See `mcp_server/MCP_UI_ARCHITECTURE.md` for design rationale and
-`mcp_server/MCP_UI_EDGE_CASES.md` for the edge-case spec.
+Pruned during onboarding (the `remote-mcp` profile excludes the
+`mcp_apps` surface). The enhancer machinery that renders them is still
+here, so `tool.send_app(...)` and `tool.can_show_app` remain available if
+an app surface is added back: re-create `mcp_server/apps/<name>/` and add
+the bundle to `[tool.hatch.build.targets.wheel] force-include` in
+`pyproject.toml` so the HTML ships in the wheel.
 
 ### MCP testing (two tiers)
 
 - **Fast tier (default CI, pytest):** unit tests for the enhancer machinery
   plus `tests/test_mcp_e2e.py`, which runs a full MCP session over the
   streamable-HTTP mount and asserts the wire format (outputSchema,
-  `_meta.ui`, CallToolResult assembly). No Node needed.
+  `_meta.ui`, CallToolResult assembly). No Node needed. Both register
+  throwaway services, since the template's own defaults are CLI-only.
 - **Conformance tier:** `make mcp_conformance` (MCPJam protocol + apps
   suites, CI-gated, needs Node). OAuth conformance is manual - see
   `docs/content/docs/mcp/oauth.mdx`.
-- App frontends: vitest per app (`bun run test` in `mcp_server/apps/<name>/`,
-  not in CI); each app has an `appContract.test.ts` pinning the real
-  `ext-apps` `App` surface against the `McpAppLike` mock type.
-- **Rendered-iframe tier (L4, #37):** `make test_apps_e2e` drives the **real
-  Goose desktop GUI** (Electron) as an MCP client and asserts the `ui://` app
-  actually renders + round-trips in a real host - including a click →
-  `callServerTool` → re-render scenario. Also wired as a skipped-by-default pytest
-  entry (`tests/test_apps_e2e.py`, opt in with `RUN_APPS_E2E=1`) and an opt-in CI
-  workflow (`.github/workflows/apps_e2e.yaml`, `workflow_dispatch` + weekly). Build
-  + rationale: `.agents/skills/goose-gui-e2e/SKILL.md`. Heavy (Goose + Electron);
-  **not** in `make ci`.
 
 ## Subagents
 

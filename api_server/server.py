@@ -13,28 +13,21 @@ from starlette.middleware.sessions import SessionMiddleware
 from api_server.middleware.error_handler import (
     ErrorHandlerMiddleware,
     RequestIdMiddleware,
-    attachment_too_large_handler,
 )
 from api_server.middleware.mcp_auth import MCPAuthMiddleware
 from api_server.middleware.rate_limit import RateLimitMiddleware
 from api_server.routes import (
-    agentic_payments,
     ask,
     auth,
-    google_oauth,
     health,
     index,
     services,
     stream,
     well_known,
 )
-from api_server.routes.google import webhooks as google_webhooks
-from api_server.routes.payments import checkout, metering, subscription, webhooks
-from api_server.runner import runner_lifespan
 from common import global_config
 from mcp_server.server import lifespan as mcp_lifespan
 from mcp_server.server import mount_on as mount_mcp_server
-from services.gmail_svc import GmailAttachmentTooLargeError
 
 try:
     _APP_VERSION = _pkg_version("mcp-template")
@@ -68,8 +61,8 @@ _API_DESCRIPTION = (
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Compose the FastMCP session manager with the periodic webhook runner."""
-    async with mcp_lifespan(app), runner_lifespan(app):
+    """Run the FastMCP session manager for the streamable-HTTP mount."""
+    async with mcp_lifespan(app):
         yield
 
 
@@ -104,11 +97,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Exception handlers ---------------------------------------------------
-# Map the oversized-attachment domain error to 413 so an over-cap
-# gmail_get_attachment request is a client error, not a generic 500.
-app.add_exception_handler(GmailAttachmentTooLargeError, attachment_too_large_handler)
-
 # --- Routes ---------------------------------------------------------------
 
 app.include_router(index.router)
@@ -117,13 +105,6 @@ app.include_router(well_known.router)
 app.include_router(services.router)
 app.include_router(stream.router)
 app.include_router(auth.router)
-app.include_router(google_oauth.router)
-app.include_router(checkout.router)
-app.include_router(metering.router)
-app.include_router(subscription.router)
-app.include_router(webhooks.router)
-app.include_router(google_webhooks.router)
-app.include_router(agentic_payments.router)
 app.include_router(ask.router)
 
 # --- MCP server (streamable HTTP) -----------------------------------------

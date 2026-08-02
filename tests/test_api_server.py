@@ -1,10 +1,11 @@
 """Integration tests for API server route registration."""
 
 import json
+import pathlib
+import tempfile
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,12 +13,8 @@ from sqlalchemy.pool import StaticPool
 
 from api_server.auth import AuthenticatedUser, get_authenticated_user
 from api_server.server import app
-from common import global_config, token_encryption
-from common.token_encryption import FernetEncryption
-from db import engine as db_engine
 from db.base import Base
 from db.engine import get_db_session
-from db.models.thread_curation import ThreadCuration
 from tests.test_template import TestTemplate
 
 _engine = create_engine(
@@ -70,16 +67,9 @@ class TestAPIServer(TestTemplate):
     def setup_method(self):
         app.dependency_overrides[get_authenticated_user] = _override_auth
         app.dependency_overrides[get_db_session] = _override_db
-        # Patch use_db_session so ensure_daily_limit uses the test DB
-        self._use_db_patcher = patch(
-            "api_server.billing.limits.use_db_session",
-            _override_use_db_session,
-        )
-        self._use_db_patcher.start()
         self.client = TestClient(app)
 
     def teardown_method(self):
-        self._use_db_patcher.stop()
         app.dependency_overrides.clear()
 
     def test_health_endpoint(self):
@@ -126,40 +116,13 @@ class TestAPIServer(TestTemplate):
         assert "/api/v1/services/config_show" in routes
 
     def test_mutating_service_requires_idempotency_key(self):
-        """gmail_send is mutating=True, so its route enforces Idempotency-Key."""
+        """config_set is mutating=True, so its route enforces Idempotency-Key."""
         resp = self.client.post(
-            "/api/v1/services/gmail_send",
-            json={"draft_id": "draft-123"},
+            "/api/v1/services/config_set",
+            json={"key": "example_parent.example_child", "value": "1"},
         )
         assert resp.status_code == 422
         assert "Idempotency-Key" in resp.json()["error"]["message"]
-
-    def test_oversized_attachment_returns_413(self):
-        """An over-cap gmail_get_attachment surfaces as 413, not a generic 500."""
-        mock_svc = MagicMock()
-        mock_svc.users().messages().attachments().get().execute.return_value = {
-            "data": "QUJD",  # "ABC"
-            "size": 10_000,
-        }
-        with (
-            patch(
-                "services.gmail_messages_svc._get_gmail_client", return_value=mock_svc
-            ),
-            patch.object(global_config.gmail, "max_attachment_bytes", 5),
-        ):
-            resp = self.client.post(
-                "/api/v1/services/gmail_get_attachment",
-                json={"message_id": "m-1", "attachment_id": "att-1"},
-            )
-        assert resp.status_code == 413
-        assert resp.json()["error"]["code"] == "payload_too_large"
-
-    def test_billing_routes_registered(self):
-        """Billing routes should be registered."""
-        routes = [r.path for r in app.routes if hasattr(r, "path")]
-        assert "/api/v1/billing/checkout/create" in routes
-        assert "/api/v1/billing/usage/current" in routes
-        assert "/api/v1/billing/subscription/status" in routes
 
     def test_stream_doctor_route_registered(self):
         routes = [r.path for r in app.routes if hasattr(r, "path")]
@@ -244,14 +207,14 @@ class ServiceRouteIdempotencyBase(TestTemplate):
     - ``_payload()`` / ``_conflicting_payload()`` - request bodies (the second
       must hash differently for the conflict test);
     - ``_mutation_count()`` - how many times the underlying side effect has
-      actually happened (DB rows written, Gmail API calls made, ...), so the
+      actually happened (DB rows written, upstream API calls made, ...), so the
       generic tests can assert 0 mutations without a key and exactly 1 across
       an execute + replay pair;
     - ``_extra_setup()`` / ``_extra_patchers()`` / ``_extra_teardown()`` -
       service-specific mocks and overrides.
 
-    The base provides the fresh in-memory DB, auth override, idempotency +
-    billing session patches, and the missing-key / replay / conflict triad.
+    The base provides the fresh in-memory DB, auth override, idempotency
+    session patch, and the missing-key / replay / conflict triad.
     """
 
     ROUTE: str
@@ -278,7 +241,6 @@ class ServiceRouteIdempotencyBase(TestTemplate):
 
         self._patchers = [
             patch("api_server.idempotency.use_db_session", _ctx),
-            patch("api_server.billing.limits.use_db_session", _ctx),
             # Disable opportunistic idempotency-key cleanup so it can't race.
             patch("api_server.idempotency.random.random", return_value=1.0),
             *self._extra_patchers(),
@@ -347,128 +309,42 @@ class ServiceRouteIdempotencyBase(TestTemplate):
         assert conflict.status_code == 422
 
 
-class TestInboxSaveCurationIdempotency(ServiceRouteIdempotencyBase):
-    """inbox_save_curation: the mutation is a curation-ledger row write."""
+class TestConfigSetIdempotency(ServiceRouteIdempotencyBase):
+    """config_set: the mutation is the override-file write. A retried request
+    carrying the same Idempotency-Key must replay the stored response instead
+    of writing the file a second time."""
 
-    ROUTE = "/api/v1/services/inbox_save_curation"
+    ROUTE = "/api/v1/services/config_set"
 
-    def _extra_setup(self):
-        def _db_dep():
-            session = self.SessionLocal()
-            try:
-                yield session
-            finally:
-                session.close()
+    def _extra_setup(self) -> None:
+        self._writes = 0
+        self._tmp = tempfile.TemporaryDirectory()
 
-        app.dependency_overrides[get_db_session] = _db_dep
+        def _counting_dump(*args, **kwargs):
+            self._writes += 1
+            return None
 
-        # Route every db.engine.use_db_session caller (idempotency claim/replay,
-        # billing quota, and the curation ledger) at this fresh test DB. Both
-        # globals must be set: _init_engine() only short-circuits when _engine
-        # is non-None, otherwise it rebuilds from BACKEND_DB_URI and clobbers
-        # _SessionLocal.
-        self._orig_engine = db_engine._engine
-        self._orig_session_local = db_engine._SessionLocal
-        db_engine._engine = self.engine
-        db_engine._SessionLocal = self.SessionLocal
+        self._dump = _counting_dump
 
-    def _extra_patchers(self):
+    def _extra_patchers(self) -> list:
         return [
-            # inbox_save_curation reads each thread's current historyId to stamp
-            # the row; mock the Gmail client + batch fetch (no network).
-            patch("services.inbox_curation_svc._get_gmail_client"),
-            patch(
-                "services.inbox_curation_svc._batch_get_threads",
-                return_value={"t1": {"id": "t1", "historyId": "100"}},
-            ),
-            # Real encryption backend for summary/reasoning at rest.
-            patch.object(
-                token_encryption,
-                "require_encryption",
-                return_value=FernetEncryption(Fernet.generate_key().decode()),
-            ),
-        ]
-
-    def _extra_teardown(self):
-        db_engine._engine = self._orig_engine
-        db_engine._SessionLocal = self._orig_session_local
-
-    def _judgments(self, importance: float) -> dict:
-        return {
-            "judgments": [
-                {
-                    "thread_id": "t1",
-                    "bucket": "needs_reply",
-                    "importance": importance,
-                    "summary": "deck due",
-                }
-            ]
-        }
-
-    def _payload(self) -> dict:
-        return self._judgments(0.9)
-
-    def _conflicting_payload(self) -> dict:
-        return self._judgments(0.1)
-
-    def _mutation_count(self) -> int:
-        with self.SessionLocal() as s:
-            return (
-                s.query(ThreadCuration).filter(ThreadCuration.thread_id == "t1").count()
-            )
-
-    def _assert_first_response(self, resp):
-        assert resp.json()["saved"] == 1
-
-
-class TestGmailComposeIdempotency(ServiceRouteIdempotencyBase):
-    """gmail_compose: the mutation is Gmail ``drafts().create()`` - a retried
-    request with the same key must replay instead of creating a second draft
-    (the P0 duplicate-draft bug).
-    """
-
-    ROUTE = "/api/v1/services/gmail_compose"
-
-    def _extra_setup(self):
-        # Mocked Gmail client: drafts().create() is the mutation under test.
-        self.mock_svc = MagicMock()
-        self.mock_svc.users().drafts().create().execute.return_value = {"id": "d-new"}
-        # compose re-fetches the saved draft at format=full after create.
-        self.mock_svc.users().drafts().get().execute.return_value = {
-            "id": "d-new",
-            "message": {
-                "id": "m-new",
-                "threadId": "t-new",
-                "payload": {
-                    "mimeType": "text/plain",
-                    "headers": [
-                        {"name": "To", "value": "alice@example.com"},
-                        {"name": "Subject", "value": "Subj"},
-                    ],
-                    "body": {"data": "Qm9keSE"},  # "Body!"
-                },
-            },
-        }
-        # Reset call counts accrued while configuring return values above.
-        self._create_execute = self.mock_svc.users().drafts().create().execute
-        self._create_execute.reset_mock()
-
-    def _extra_patchers(self):
-        return [
-            patch(
-                "services.gmail_drafts_svc._get_gmail_client",
-                return_value=self.mock_svc,
-            ),
+            # Point the override file at a temp dir and count the writes, so
+            # the mutation is observable without touching the real repo file.
+            patch("services.config_svc._ROOT_DIR", pathlib.Path(self._tmp.name)),
+            patch("services.config_svc.yaml.safe_dump", self._dump),
         ]
 
     def _payload(self) -> dict:
-        return {"to": "alice@example.com", "subject": "Subj", "body": "Body!"}
+        return {"key": "example_parent.example_child", "value": "42"}
 
     def _conflicting_payload(self) -> dict:
-        return {**self._payload(), "subject": "Other"}
+        return {"key": "example_parent.example_child", "value": "99"}
+
+    def _extra_teardown(self) -> None:
+        self._tmp.cleanup()
 
     def _mutation_count(self) -> int:
-        return self._create_execute.call_count
+        return self._writes
 
-    def _assert_first_response(self, resp):
-        assert resp.json()["draft_id"] == "d-new"
+    def _assert_first_response(self, resp) -> None:
+        assert resp.json()["key"] == "example_parent.example_child"

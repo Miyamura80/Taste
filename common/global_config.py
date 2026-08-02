@@ -16,20 +16,16 @@ from pydantic_settings import (
 
 # Import configuration models
 from .config_models import (
-    AgenticPaymentsConfig,
     AskConfig,
     BrandingConfig,
     CliConfig,
     DefaultLlm,
     ExampleParent,
     FeaturesConfig,
-    GmailConfig,
     LlmConfig,
     LoggingConfig,
-    PdfFormsConfig,
     RateLimitConfig,
     ServerConfig,
-    SubscriptionConfig,
     TelemetryConfig,
     WebBotAuthConfig,
 )
@@ -190,17 +186,9 @@ class Config(BaseSettings):
     cli: CliConfig = Field(default_factory=lambda: CliConfig())
     server: ServerConfig = Field(default_factory=lambda: ServerConfig())
     branding: BrandingConfig = Field(default_factory=lambda: BrandingConfig())
-    subscription_config: SubscriptionConfig = Field(
-        default_factory=lambda: SubscriptionConfig()
-    )
     rate_limit: RateLimitConfig = Field(default_factory=lambda: RateLimitConfig())
-    payments: AgenticPaymentsConfig = Field(
-        default_factory=lambda: AgenticPaymentsConfig()
-    )
     ask: AskConfig = Field(default_factory=lambda: AskConfig())
     web_bot_auth: WebBotAuthConfig = Field(default_factory=lambda: WebBotAuthConfig())
-    gmail: GmailConfig = Field(default_factory=lambda: GmailConfig())
-    pdf_forms: PdfFormsConfig = Field(default_factory=lambda: PdfFormsConfig())
 
     # Environment variables
     DEV_ENV: str
@@ -209,12 +197,6 @@ class Config(BaseSettings):
     GROQ_API_KEY: str | None = None
     PERPLEXITY_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
-
-    # Agentic payments (observability only - the protocol reads these
-    # via os.getenv() using the env var name from payments.yaml config,
-    # not from these fields directly)
-    X402_WALLET_ADDRESS: str | None = None
-    X402_PRIVATE_KEY: str | None = None
 
     # Database & auth secrets
     BACKEND_DB_URI: str | None = None
@@ -236,46 +218,8 @@ class Config(BaseSettings):
     WEB_BOT_AUTH_PRIVATE_KEY: str | None = None
     SESSION_SECRET_KEY: str = "change-me-in-production"
 
-    # Stripe & billing
-    STRIPE_SECRET_KEY: str | None = None
-    STRIPE_TEST_SECRET_KEY: str | None = None
-    STRIPE_WEBHOOK_SECRET: str | None = None
-    STRIPE_TEST_WEBHOOK_SECRET: str | None = None
-    STRIPE_ALLOW_LIVE_KEY_IN_DEV: bool = False
-    FRONTEND_URL: str = "http://localhost:3000"
-
     # Redis
     REDIS_URL: str | None = None
-
-    # Google OAuth (Gmail integration) - fill in real values in .env
-    GOOGLE_CLIENT_ID: str | None = None
-    GOOGLE_CLIENT_SECRET: str | None = None
-    GOOGLE_REDIRECT_URI: str | None = None
-    # Base64-url Fernet key used to encrypt stored refresh tokens
-    GOOGLE_TOKEN_ENC_KEY: str | None = None
-
-    # Gmail push notifications (Pub/Sub) + outbound webhook fan-out.
-    # All optional; if GMAIL_PUBSUB_TOPIC is unset the push pipeline stays
-    # dormant (no watch auto-start, no runner loop).
-    # Fully-qualified Pub/Sub topic, e.g. "projects/<proj>/topics/<topic>".
-    GMAIL_PUBSUB_TOPIC: str | None = None
-    # OIDC "aud" claim the push receiver requires on the Pub/Sub JWT.
-    GMAIL_PUSH_AUDIENCE: str | None = None
-    # OIDC "email" claim the push receiver requires (the push subscription's
-    # service account). Empty disables the identity check (dev only).
-    GMAIL_PUSH_SA_EMAIL: str | None = None
-    # How the periodic runner (watch renewal + outbox drain) is driven:
-    #   "off"      - no runner (default)
-    #   "loop"     - in-process asyncio loop started in the FastAPI lifespan
-    #   "endpoint" - driven externally by POSTing the internal /renew route
-    WEBHOOK_RUNNER_MODE: str = "off"
-    # Seconds between in-process runner ticks when WEBHOOK_RUNNER_MODE="loop".
-    WEBHOOK_RUNNER_INTERVAL_S: int = 30
-    # Max delivery attempts before an outbox row is marked "failed".
-    WEBHOOK_MAX_ATTEMPTS: int = 6
-    # Shared bearer required by the internal POST /api/v1/google/internal/renew
-    # endpoint (WEBHOOK_RUNNER_MODE="endpoint"). Unset -> endpoint disabled.
-    WEBHOOK_RUNNER_TOKEN: str | None = None
 
     # Runtime environment (computed via default_factory)
     is_local: bool = Field(

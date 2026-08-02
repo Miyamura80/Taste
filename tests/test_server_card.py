@@ -36,12 +36,12 @@ class TestServerCard:
         # Pre-connect discovery: agents preview the tool surface before connecting.
         body = self._client().get(CARD_PATH).json()
         tools = body["tools"]
-        assert tools, "server card must advertise tools[] for pre-connect discovery"
+        # The template ships no MCP tools until a service is added, so the
+        # contract is the key's presence and per-entry shape, not a count.
+        assert isinstance(tools, list)
         assert all(t["name"] and t["description"] for t in tools)
         names = {t["name"] for t in tools}
-        # A representative public Gmail tool is exposed...
-        assert "gmail_curate_inbox" in names
-        # ...while CLI-only defaults are not part of the MCP tool surface.
+        # CLI-only defaults are never part of the MCP tool surface.
         assert "doctor" not in names
         assert "config_set" not in names
 

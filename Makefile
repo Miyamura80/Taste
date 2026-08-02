@@ -59,7 +59,6 @@ logo: check_uv ## Generate logo and favicon for docs
 	@uv run python -m init.generate_logo
 	@echo "$(GREEN)✅Logo and favicon generated in docs/public/$(RESET)"
 
-
 ########################################################
 # Check dependencies
 ########################################################
@@ -135,22 +134,6 @@ mcp: check_uv ## Run MCP server locally (stdio)
 mcp_inspect: check_uv ## Run MCP server with inspector for debugging
 	@$(PYTHON) mcp dev mcp_server/server.py
 
-build_apps: ## Build all MCP App frontends to dist/mcp-app.html (requires bun)
-	@command -v bun >/dev/null 2>&1 || { echo "$(RED)bun is not installed. Install from https://bun.sh$(RESET)"; exit 1; }
-	@for dir in mcp_server/apps/*/; do \
-		if [ -f "$$dir/package.json" ]; then \
-			echo "$(YELLOW)📦 Building $$dir$(RESET)"; \
-			(cd "$$dir" && bun install --silent && bun run build); \
-		fi; \
-	done
-	@echo "$(GREEN)✅ All MCP Apps built.$(RESET)"
-
-dev_host: ## Run upstream @modelcontextprotocol/ext-apps basic-host for manual smoke testing
-	@command -v bun >/dev/null 2>&1 || { echo "$(RED)bun is not installed. Install from https://bun.sh$(RESET)"; exit 1; }
-	@echo "$(YELLOW)Cloning ext-apps basic-host (one-time)...$(RESET)"
-	@if [ ! -d /tmp/ext-apps ]; then git clone --depth 1 https://github.com/modelcontextprotocol/ext-apps.git /tmp/ext-apps; fi
-	@cd /tmp/ext-apps/examples/basic-host && bun install --silent && bun start
-
 .PHONY: preview_app preview_smoke
 APP ?= gmail_inbox
 preview_app: ## Build a standalone fixture-driven preview of an MCP App (APP=gmail_inbox)
@@ -168,21 +151,6 @@ mcp_conformance: check_uv ## Run MCPJam apps + protocol conformance against the 
 	@echo "$(YELLOW)🔌 Running MCPJam conformance...$(RESET)"
 	@uv run python scripts/mcp_conformance.py
 	@echo "$(GREEN)✅ MCP conformance passed.$(RESET)"
-
-GOOSE_E2E := .agents/skills/goose-gui-e2e/scripts
-test_apps_e2e: ## L4 MCP-App e2e: drive the real Goose desktop GUI as an MCP client (needs one-time setup; NOT in make ci)
-	@test -x "$$HOME/goose-e2e/goose_src/target/debug/goose" || { \
-		echo "$(YELLOW)⚠️  Goose not built yet. Run once: bash $(GOOSE_E2E)/setup.sh$(RESET)"; \
-		echo "$(YELLOW)   (needs registry.npmmirror.com on the network allowlist; ~6-8 min)$(RESET)"; exit 1; }
-	@echo "$(YELLOW)🪿 Running Goose-GUI MCP-App e2e (real Electron host)...$(RESET)"
-	@bash $(GOOSE_E2E)/up.sh
-	@bash $(GOOSE_E2E)/run_all.sh
-	@echo "$(GREEN)✅ MCP-App e2e passed.$(RESET)"
-
-gen_tool_surface: check_uv ## Snapshot the @service registry to the landing-page tool-surface JSON
-	@echo "$(YELLOW)🛠  Exporting tool surface...$(RESET)"
-	@uv run python scripts/export_tool_surface.py
-	@echo "$(GREEN)✅ Tool surface exported.$(RESET)"
 
 ########################################################
 # Run Tests
@@ -225,7 +193,6 @@ test_flaky: check_uv ## Repeat fast tests to detect flaky tests
 	@echo "$(GREEN)🧪Running Flaky Test Detection...$(RESET)"
 	$(TEST) --count 2 -m "not slow and not nondeterministic" $(TEST_TARGETS)
 	@echo "$(GREEN)✅Flaky Test Detection Passed.$(RESET)"
-
 
 ########################################################
 # Cleaning
@@ -331,10 +298,6 @@ ci: ruff vulture import_lint ty docs_lint check_deps file_len_check blind_except
 .PHONY: sync-agent-config
 sync-agent-config: check_uv ## Sync Claude <-> Codex skills & subagents (regenerates symlinks and .codex/agents/*.toml)
 	@uv run scripts/sync_agent_config.py
-
-.PHONY: sync-skills
-sync-skills: check_uv ## Mirror skills/ into landing-page/.well-known and refresh index.json digests
-	@uv run scripts/sync_skills.py
 
 ########################################################
 # Database
