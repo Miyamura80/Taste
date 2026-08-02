@@ -1,9 +1,9 @@
 """Run MCPJam apps + protocol conformance against the local ``/mcp`` server.
 
 Boots ``api_server.server:app`` on a throwaway SQLite DB, seeds an API key,
-runs ``mcpjam apps conformance`` and ``mcpjam protocol conformance`` against the
-streamable-HTTP ``/mcp`` mount, and exits non-zero if either run reports a
-``failed`` check.
+runs ``mcpjam protocol conformance`` (and ``mcpjam apps conformance`` when this
+server ships an MCP App surface) against the streamable-HTTP ``/mcp`` mount, and
+exits non-zero if any run reports a ``failed`` check.
 
 The MCPJam CLI exits 0 even when checks fail, so gating is done by parsing the
 JSON report (``failed`` count), not the process exit code.
@@ -119,6 +119,27 @@ def _wait_ready(proc: subprocess.Popen) -> None:
     raise TimeoutError(f"server not ready on {url} after {READY_TIMEOUT_S}s")
 
 
+def _suites_to_run() -> tuple[str, ...]:
+    """Return the conformance suites that are meaningful for this server.
+
+    The apps suite's first check (``ui-tools-present``) asserts that at least
+    one tool advertises an MCP Apps ``ui://`` resource, and every later check
+    skips without it - so a server with no app surface scores 0/7 and fails
+    despite behaving correctly. The MCP App surface is optional here (onboarding
+    can prune it), so gate the suite on the same condition the server itself
+    uses to decide whether to register ``ui://`` resources at all.
+    """
+    from mcp_server.server import _APPS_DIR  # noqa: PLC0415
+
+    if _APPS_DIR.is_dir():
+        return ("protocol", "apps")
+    print(
+        "[skip] apps conformance: this server registers no MCP App surface "
+        f"({_APPS_DIR} absent). Protocol conformance still gates CI."
+    )
+    return ("protocol",)
+
+
 def _run_conformance(suite: str, api_key: str) -> dict:
     """Run one conformance suite and return its parsed JSON report."""
     cmd = [
@@ -187,7 +208,7 @@ def main() -> int:
     blocking: list[str] = []
     try:
         _wait_ready(server)
-        for suite in ("protocol", "apps"):
+        for suite in _suites_to_run():
             report = _run_conformance(suite, api_key)
             blocking += _print_report(suite, report)
     finally:
